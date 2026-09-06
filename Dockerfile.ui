@@ -1,0 +1,15 @@
+# Dockerfile for the Streamlit UI (Task 2 - ui/app.py)
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN pip install uv
+
+COPY pyproject.toml uv.lock ./
+RUN uv sync --no-dev
+
+COPY ui/ ui/
+
+EXPOSE 8501
+
+CMD ["uv", "run", "streamlit", "run", "ui/app.py", "--server.address=0.0.0.0", "--server.port=8501"]

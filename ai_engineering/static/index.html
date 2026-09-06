@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ResNet18 Image Classification Tutorial</title>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --secondary: #64748b;
+      --success: #10b981;
+      --error: #ef4444;
+      --warning: #f59e0b;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --text: #1e293b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    .container { max-width: 900px; margin: 0 auto; padding: 2rem; }
+    h1 { font-size: 1.75rem; font-weight: 600; margin-bottom: 0.5rem; }
+    .subtitle { color: var(--secondary); font-size: 0.875rem; margin-bottom: 2rem; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 0; margin-bottom: 1.5rem; border-bottom: 2px solid #e2e8f0; }
+    .tab-btn {
+      padding: 0.75rem 1.5rem;
+      background: none;
+      border: none;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--secondary);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: all 0.2s;
+    }
+    .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .tab-btn:hover { color: var(--text); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* Upload zone */
+    .upload-zone {
+      border: 2px dashed var(--primary);
+      border-radius: 8px;
+      padding: 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-bottom: 1.5rem;
+    }
+    .upload-zone:hover { border-color: var(--primary-dark); background: rgba(37, 99, 235, 0.05); }
+    .upload-zone.dragover { border-color: var(--success); background: rgba(16, 185, 129, 0.05); }
+    .upload-zone input { display: none; }
+    .upload-zone .icon { width: 48px; height: 48px; margin: 0 auto 0.75rem; opacity: 0.6; }
+    .upload-zone p { color: var(--secondary); }
+    .upload-zone small { color: var(--secondary); font-size: 0.75rem; }
+
+    img.preview { max-width: 100%; border-radius: 4px; margin-top: 1rem; display: none; max-height: 300px; object-fit: contain; }
+
+    /* Controls */
+    .controls { display: flex; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap; align-items: center; }
+    .controls label { display: flex; align-items: center; gap: 0.4rem; color: var(--secondary); font-size: 0.875rem; }
+    .controls button {
+      flex: 1; min-width: 120px; padding: 0.5rem 1rem;
+      background: var(--primary); color: white; border: none; border-radius: 4px;
+      font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: background 0.2s;
+    }
+    .controls button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .controls button:hover:not(:disabled) { background: var(--primary-dark); }
+
+    /* Results */
+    .results { margin-top: 2rem; padding: 1.5rem; background: var(--card); border-radius: 8px; border: 1px solid #e2e8f0; }
+    .results h3 { font-size: 1rem; font-weight: 500; margin-bottom: 1rem; }
+    .pred-table { width: 100%; border-collapse: collapse; }
+    .pred-table th { text-align: left; padding: 0.5rem 0; font-size: 0.75rem; color: var(--secondary); }
+    .pred-table td { padding: 0.5rem 0; border-top: 1px solid #e2e8f0; }
+    .pred-table td:first-child { color: var(--primary); font-weight: 500; }
+    .progress-bar { width: 100%; height: 8px; background: #e2e8f0; border-radius: 4px; overflow: hidden; margin-top: 0.25rem; }
+    .progress-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.3s; }
+    .progress-fill.success { background: var(--success); }
+    .latency { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e2e8f0; font-size: 0.875rem; color: var(--secondary); }
+
+    /* Bulk status */
+    .bulk-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    .bulk-progress { font-size: 0.875rem; color: var(--secondary); }
+    .bulk-progress strong { color: var(--text); }
+    .overall-bar { width: 100%; height: 12px; background: #e2e8f0; border-radius: 6px; overflow: hidden; margin-bottom: 1.5rem; }
+    .overall-fill { height: 100%; background: var(--primary); transition: width 0.4s; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; color: white; font-weight: 600; }
+
+    .task-card {
+      background: var(--card); border: 1px solid #e2e8f0; border-radius: 8px;
+      padding: 1rem; margin-bottom: 0.75rem; transition: border-color 0.3s;
+    }
+    .task-card.complete { border-color: var(--success); }
+    .task-card.error { border-color: var(--error); }
+    .task-card .task-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+    .task-card .task-name { font-weight: 500; font-size: 0.875rem; }
+    .task-card .task-status {
+      font-size: 0.75rem; padding: 0.15rem 0.5rem; border-radius: 9999px; font-weight: 500;
+    }
+    .status-queued { background: #e0e7ff; color: #4338ca; }
+    .status-complete { background: #d1fae5; color: #065f46; }
+    .status-error { background: #fee2e2; color: #991b1b; }
+
+    .task-predictions { font-size: 0.8rem; color: var(--secondary); }
+    .task-predictions .top1 { color: var(--text); font-weight: 500; }
+
+    /* Error */
+    .error { background: #fee2e2; border: 1px solid #fecaca; color: #dc2626; padding: 1rem; border-radius: 4px; margin-top: 1rem; display: none; }
+    .error.active { display: block; }
+
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #e2e8f0; border-top-color: var(--primary); border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle; margin-right: 0.4rem; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @media (max-width: 480px) {
+      .container { padding: 1rem; }
+      .controls { flex-direction: column; }
+      .controls button { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Image Classifier (ResNet18)</h1>
+    <p class="subtitle">Pre-trained on ImageNet 1000 classes</p>
+
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="single">Single Image</button>
+      <button class="tab-btn" data-tab="bulk">Bulk Upload (Async)</button>
+    </div>
+
+    <!-- Single Image Tab -->
+    <div id="tab-single" class="tab-panel active">
+      <div class="upload-zone" id="dropZone">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M10 3H7a2 2 0 00-2 2v14a2 2 0 002 2h3m3-8v8M7 5H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-2M7 5a2 2 0 00-2 2v14"/>
+        </svg>
+        <p>Drag & drop or click to upload</p>
+        <small>Supports JPG, PNG, WebP</small>
+        <input type="file" id="fileInput" accept="image/*">
+      </div>
+      <img class="preview" id="preview" alt="Preview">
+      <div class="controls">
+        <label><input type="radio" name="model" value="fp32" checked> FP32 (ONNX)</label>
+        <label><input type="radio" name="model" value="int8"> INT8 (Quantized)</label>
+        <button id="predictBtn" disabled>Classify</button>
+      </div>
+      <div id="results" class="results" hidden>
+        <h3>Top-5 Predictions</h3>
+        <table class="pred-table"><thead><tr><th>Rank</th><th>Class</th><th>Confidence</th></tr></thead><tbody id="predBody"></tbody></table>
+        <div class="latency" id="latency">Inference: -- ms</div>
+      </div>
+    </div>
+
+    <!-- Bulk Upload Tab -->
+    <div id="tab-bulk" class="tab-panel">
+      <div class="upload-zone" id="bulkDropZone">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M10 3H7a2 2 0 00-2 2v14a2 2 0 002 2h3m3-8v8M7 5H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-2M7 5a2 2 0 00-2 2v14"/>
+        </svg>
+        <p>Drag & drop multiple images</p>
+        <small>Select multiple files at once - processing runs asynchronously in the background</small>
+        <input type="file" id="bulkFileInput" accept="image/*" multiple>
+      </div>
+      <div class="controls">
+        <button id="bulkUploadBtn" disabled>Upload & Process Async</button>
+      </div>
+      <div id="bulkStatus" class="results" hidden>
+        <div class="bulk-header">
+          <h3>Processing Status</h3>
+          <div class="bulk-progress" id="bulkProgress">0 / 0</div>
+        </div>
+        <div class="overall-bar"><div class="overall-fill" id="overallFill" style="width:0%">0%</div></div>
+        <div id="taskList"></div>
+      </div>
+    </div>
+
+    <div id="error" class="error"><span id="errorMsg"></span></div>
+  </div>
+
+  <script>
+    'use strict';
+
+    // --- Tab switching ---
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      });
+    });
+
+    // --- Single Image Mode ---
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const predictBtn = document.getElementById('predictBtn');
+    const resultsDiv = document.getElementById('results');
+    const predBody = document.getElementById('predBody');
+    const latencyDiv = document.getElementById('latency');
+    const previewImg = document.getElementById('preview');
+    const errorDiv = document.getElementById('error');
+
+    let currentImage = null;
+
+    fileInput.addEventListener('change', (e) => handleFileSelect(e.target.files[0]));
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files[0]) handleFileSelect(e.dataTransfer.files[0]);
+    });
+
+    function handleFileSelect(file) {
+      if (!file || !file.type.startsWith('image/')) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        previewImg.src = e.target.result;
+        previewImg.hidden = false;
+        dropZone.hidden = true;
+        const formData = new FormData();
+        formData.append('file', file);
+        currentImage = { file, url: e.target.result, formData };
+        predictBtn.disabled = false;
+      };
+      reader.readAsDataURL(file);
+      errorDiv.classList.remove('active');
+    }
+
+    predictBtn.addEventListener('click', async () => {
+      if (!currentImage) return;
+      predictBtn.disabled = true;
+      predictBtn.textContent = 'Classifying...';
+      resultsDiv.hidden = true;
+      errorDiv.classList.remove('active');
+      predBody.innerHTML = '';
+
+      try {
+        const response = await fetch('/predict', { method: 'POST', body: currentImage.formData });
+        if (!response.ok) { const err = await response.json(); throw new Error(err.detail || 'Unknown error'); }
+        const data = await response.json();
+        displayResults(data.predictions, data.latency_ms);
+      } catch (err) {
+        showError(err.message);
+      } finally {
+        predictBtn.disabled = false;
+        predictBtn.textContent = 'Classify';
+      }
+    });
+
+    function displayResults(predictions, latencyMs) {
+      resultsDiv.hidden = false;
+      resultsDiv.classList.add('active');
+      predBody.innerHTML = '';
+      predictions.forEach((pred, i) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td>${i + 1}</td><td>${pred.class}</td><td><span>${pred.confidence}%</span><div class="progress-bar"><div class="progress-fill" style="width:${pred.confidence}%"></div></div></td>`;
+        predBody.appendChild(row);
+      });
+      latencyDiv.textContent = `Inference: ${latencyMs} ms`;
+    }
+
+    // --- Bulk Upload Mode ---
+    const bulkDropZone = document.getElementById('bulkDropZone');
+    const bulkFileInput = document.getElementById('bulkFileInput');
+    const bulkUploadBtn = document.getElementById('bulkUploadBtn');
+    const bulkStatusDiv = document.getElementById('bulkStatus');
+    const bulkProgressDiv = document.getElementById('bulkProgress');
+    const overallFill = document.getElementById('overallFill');
+    const taskList = document.getElementById('taskList');
+
+    let bulkFiles = null;
+    let pollInterval = null;
+
+    bulkDropZone.addEventListener('click', () => bulkFileInput.click());
+    bulkDropZone.addEventListener('dragover', (e) => { e.preventDefault(); bulkDropZone.classList.add('dragover'); });
+    bulkDropZone.addEventListener('dragleave', () => bulkDropZone.classList.remove('dragover'));
+    bulkDropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      bulkDropZone.classList.remove('dragover');
+      if (e.dataTransfer.files.length > 0) {
+        bulkFiles = e.dataTransfer.files;
+        bulkUploadBtn.disabled = false;
+        bulkUploadBtn.textContent = `Upload ${bulkFiles.length} Image${bulkFiles.length > 1 ? 's' : ''} & Process Async`;
+      }
+    });
+
+    bulkFileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        bulkFiles = e.target.files;
+        bulkUploadBtn.disabled = false;
+        bulkUploadBtn.textContent = `Upload ${bulkFiles.length} Image${bulkFiles.length > 1 ? 's' : ''} & Process Async`;
+      }
+    });
+
+    bulkUploadBtn.addEventListener('click', async () => {
+      if (!bulkFiles) return;
+
+      bulkUploadBtn.disabled = true;
+      bulkUploadBtn.textContent = 'Uploading...';
+      errorDiv.classList.remove('active');
+
+      const formData = new FormData();
+      for (const file of bulkFiles) {
+        formData.append('files', file);
+      }
+
+      try {
+        const response = await fetch('/predict/bulk', { method: 'POST', body: formData });
+        if (!response.ok) { const err = await response.json(); throw new Error(err.detail || 'Upload failed'); }
+        const data = await response.json();
+
+        // Show status panel
+        bulkStatusDiv.hidden = false;
+        bulkStatusDiv.classList.add('active');
+        taskList.innerHTML = '';
+
+        // Create task cards immediately
+        const tasks = data.tasks || {};
+        for (const [filename, info] of Object.entries(tasks)) {
+          addTaskCard(filename, info);
+        }
+
+        bulkUploadBtn.textContent = `Uploaded! Processing ${data.total_files} files...`;
+
+        // Start polling
+        startPolling(data.bulk_id, data.total_files);
+
+      } catch (err) {
+        showError(err.message);
+        bulkUploadBtn.disabled = false;
+        bulkUploadBtn.textContent = 'Upload & Process Async';
+      }
+    });
+
+    function addTaskCard(filename, info) {
+      const card = document.createElement('div');
+      card.className = 'task-card';
+      card.id = `task-${info.task_id || filename}`;
+
+      let statusClass = 'status-queued';
+      let statusText = '<span class="spinner"></span>Queued';
+      let predsHtml = '';
+
+      if (info.status === 'complete') {
+        statusClass = 'status-complete';
+        statusText = `Complete (${info.latency_ms}ms)`;
+        const top1 = info.predictions?.[0];
+        predsHtml = top1 ? `<div class="task-predictions"><span class="top1">${top1.class}</span> - ${top1.confidence}%</div>` : '';
+        card.classList.add('complete');
+      } else if (info.status === 'error') {
+        statusClass = 'status-error';
+        statusText = 'Error';
+        predsHtml = `<div class="task-predictions" style="color:var(--error)">${info.error || 'Unknown error'}</div>`;
+        card.classList.add('error');
+      }
+
+      card.innerHTML = `
+        <div class="task-header">
+          <span class="task-name">${filename}</span>
+          <span class="task-status ${statusClass}">${statusText}</span>
+        </div>
+        ${predsHtml}
+      `;
+      taskList.appendChild(card);
+    }
+
+    function updateTaskCard(filename, info) {
+      const card = document.getElementById(`task-${info.task_id || filename}`);
+      if (!card) return;
+
+      card.className = 'task-card';
+      let statusClass, statusText, predsHtml;
+
+      if (info.status === 'complete') {
+        statusClass = 'status-complete';
+        statusText = `Complete (${info.latency_ms}ms)`;
+        const top1 = info.predictions?.[0];
+        predsHtml = top1 ? `<div class="task-predictions"><span class="top1">${top1.class}</span> - ${top1.confidence}%</div>` : '';
+        card.classList.add('complete');
+      } else if (info.status === 'error') {
+        statusClass = 'status-error';
+        statusText = 'Error';
+        predsHtml = `<div class="task-predictions" style="color:var(--error)">${info.error || 'Unknown error'}</div>`;
+        card.classList.add('error');
+      } else {
+        statusClass = 'status-queued';
+        statusText = '<span class="spinner"></span>Queued';
+        predsHtml = '';
+      }
+
+      card.innerHTML = `
+        <div class="task-header">
+          <span class="task-name">${filename}</span>
+          <span class="task-status ${statusClass}">${statusText}</span>
+        </div>
+        ${predsHtml}
+      `;
+    }
+
+    function startPolling(bulkId, totalFiles) {
+      if (pollInterval) clearInterval(pollInterval);
+
+      pollInterval = setInterval(async () => {
+        try {
+          const resp = await fetch(`/predict/bulk/${bulkId}`);
+          const data = await resp.json();
+          const p = data.progress;
+
+          // Update progress bar
+          bulkProgressDiv.innerHTML = `<strong>${p.completed + p.errors}</strong> / ${p.total} processed`;
+          overallFill.style.width = p.percent + '%';
+          overallFill.textContent = p.percent + '%';
+
+          if (p.percent >= 100) {
+            overallFill.style.background = 'var(--success)';
+          }
+
+          // Update task cards
+          for (const [filename, info] of Object.entries(data.tasks)) {
+            updateTaskCard(filename, info);
+          }
+
+          // Stop polling when all done
+          if (p.pending === 0) {
+            clearInterval(pollInterval);
+            pollInterval = null;
+            bulkUploadBtn.textContent = `Done! ${p.completed} succeeded, ${p.errors} failed`;
+            bulkUploadBtn.disabled = false;
+          }
+        } catch (e) {
+          // Keep polling on network errors
+        }
+      }, 500);
+    }
+
+    function showError(msg) {
+      errorDiv.querySelector('#errorMsg').textContent = msg;
+      errorDiv.classList.add('active');
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv/
+venv/
+
+# RAG application data (rebuild locally with `python -m rag_app build`)
+chroma_db/
+rag_app/chroma_db/
+*.pdf
+
+# Environment variables / secrets
+.env
+.env.local
+
+# Docker
+*.tar
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Logs
+*.log
+

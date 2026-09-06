@@ -1,0 +1,28 @@
+# Use a slim Python 3.11 base image
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install uv
+RUN pip install uv
+
+# Copy project files
+COPY pyproject.toml uv.lock ./
+
+# Sync dependencies using uv
+RUN uv sync --no-dev
+
+# Copy the source code
+COPY rag_app/ rag_app/
+
+# Expose LiteLLM proxy port
+EXPOSE 4000
+
+# Default CMD starts the LiteLLM proxy with the provided config
+CMD ["uv", "run", "litellm", "--config", "rag_app/litellm_config.yaml", "--port", "4000"]

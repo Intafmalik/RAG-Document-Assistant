@@ -1,0 +1,26 @@
+model_list:
+  - model_name: gemini-primary
+    litellm_params:
+      model: gemini/gemini-3.6-flash
+      api_key: os.environ/GEMINI_API_KEY
+
+  - model_name: gemini-fallback
+    litellm_params:
+      model: gemini/gemini-3.1-pro-preview
+      api_key: os.environ/GEMINI_API_KEY
+
+  # Local open-source model served via vLLM (see scripts/serve_local_model.sh)
+  # Start vLLM first, then this model becomes reachable as --model local-model
+  - model_name: local-model
+    litellm_params:
+      model: openai/Qwen/Qwen2.5-1.5B-Instruct
+      api_base: http://localhost:8001/v1
+      api_key: "not-needed"
+
+litellm_settings:
+  drop_params: true
+
+router_settings:
+  fallbacks:
+    - gemini-primary:
+        - gemini-fallback

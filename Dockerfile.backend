@@ -1,0 +1,20 @@
+# Dockerfile for the FastAPI backend (Task 2 - service/api.py)
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install uv
+
+COPY pyproject.toml uv.lock ./
+RUN uv sync --no-dev
+
+COPY rag_app/ rag_app/
+COPY service/ service/
+
+EXPOSE 8000
+
+CMD ["uv", "run", "uvicorn", "service.api:app", "--host", "0.0.0.0", "--port", "8000"]
